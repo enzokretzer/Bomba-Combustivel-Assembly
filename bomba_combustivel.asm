@@ -1,5 +1,7 @@
 .data
 	zeroD:			.double 0
+	cemD:			.double 100
+	milD:			.double 1000
 	precoComum: 		.double 6.14
 	precoAditivada:		.double 6.34
 	precoAlcool:		.double 4.13
@@ -18,12 +20,16 @@
 	getPagM1:	.asciiz "Pagar combustível por:\n"
 	getPagM2:	.asciiz "1 - Valor monetário \n"
 	getPagM3:	.asciiz "2 - Litro \n"
+	encherM:	.asciiz "Enchendo o tanque...\n"
+	enchidoM:	.asciiz "Tanque enchido!\n"
 .text
 
 main:
-	jal	getFormaPagamento
-	move	$a0, $v0
-	li	$v0, 1
+	li	$a0, 2
+	l.d	$f12, precoComum
+	jal	pagarCombustivel
+	mov.d	$f12, $f0
+	li	$v0, 3
 	syscall
 
 	li	$v0, 10
@@ -176,3 +182,165 @@ getFormaPagamento:
 	lw	$ra, 0($sp)
 	addi	$sp, $sp, 4
 	jr	$ra
+	
+# $f0 -> retorna um valor 
+getDoubleValue:
+	addi	$sp, $sp -4
+	sw	$ra, 0($sp)
+	
+	move	$s0, $zero
+	getDoubleValueLoop:
+		validDoubleValueLoop:
+			addi	$sp, $sp -4
+			sw	$s0, 0($sp)
+			
+			jal	getHexKeyboardInput
+			move	$t1, $v0
+			
+			lw	$s0, 0($sp)
+			addi	$sp, $sp, 4
+			
+			bnez	$s0, contDouble		# Apenas na primeira iteração
+			beqz	$t1, validDoubleValueLoop	# Não adiciona zeros à esquerda
+			contDouble:
+			sgt	$t2, $t1, 10
+			bnez	$t2, validDoubleValueLoop
+			
+		beq	$t1, 10, endDoubleValueLoop
+		addi	$sp, $sp, -4
+		sw	$t1, 0($sp)
+		addi	$s0, $s0, 1
+		j	getDoubleValueLoop
+		
+	endDoubleValueLoop:
+		slti	$t5, $s0, 2
+		bnez	$t5, getDoubleValueLoop
+		move	$t1, $zero	#iterador
+		li	$t2, 1		# multiplicador
+	translateDoubleValue:
+		lw	$t3, 0($sp)
+		mul	$t3, $t3, $t2
+		add	$t4, $t4, $t3
+		addi	$t1, $t1, 1
+		addi	$sp, $sp, 4
+		mul	$t2, $t2, 10
+		bne	$t1, $s0, translateDoubleValue
+		
+	mtc1	$t4, $f4
+	cvt.d.w	$f4, $f4
+	l.d	$f6, cemD
+	div.d	$f4, $f4, $f6
+	mov.d	$f0, $f4
+	
+	lw	$ra, 0($sp)
+	addi	$sp, $sp, 4
+	jr	$ra
+
+# $v0 -> Valor inteiro obtido	
+getIntValue:
+	addi	$sp, $sp -4
+	sw	$ra, 0($sp)
+	
+	move	$s0, $zero
+	getIntValueLoop:
+		validIntValueLoop:
+			addi	$sp, $sp -4
+			sw	$s0, 0($sp)
+			
+			jal	getHexKeyboardInput
+			move	$t1, $v0
+			
+			lw	$s0, 0($sp)
+			addi	$sp, $sp, 4
+			
+			bnez	$s0, contInt		# Apenas na primeira iteração
+			beqz	$t1, validIntValueLoop	# Não adiciona zeros à esquerda
+			contInt:
+			sgt	$t2, $t1, 10
+			bnez	$t2, validIntValueLoop
+			
+		beq	$t1, 10, endIntValueLoop
+		addi	$sp, $sp, -4
+		sw	$t1, 0($sp)
+		addi	$s0, $s0, 1
+		j	getIntValueLoop
+		
+	endIntValueLoop:
+		beqz	$s0, getIntValueLoop
+		move	$t1, $zero	#iterador
+		li	$t2, 1		# multiplicador
+	translateIntValue:
+		lw	$t3, 0($sp)
+		mul	$t3, $t3, $t2
+		add	$t4, $t4, $t3
+		addi	$t1, $t1, 1
+		addi	$sp, $sp, 4
+		mul	$t2, $t2, 10
+		bne	$t1, $s0, translateIntValue
+		
+	move	$v0, $t4
+	lw	$ra, 0($sp)
+	addi	$sp, $sp, 4
+	jr	$ra
+	
+# $a0 -> Duração da espera em milissegundos
+encher:
+	move	$t0, $a0
+	
+	la	$a0, encherM
+	li	$v0, 4
+	syscall
+	
+	li	$v0, 30
+	syscall
+	
+	add	$t1, $t0, $a0
+	
+	encher_loop:
+		li	$v0, 30
+		syscall
+		
+		blt	$a0, $t1, encher_loop
+		
+	la	$a0, enchidoM
+	li	$v0, 4
+	syscall
+	
+	jr	$ra
+	
+# $a0 -> forma de pagamento
+# $f12 -> preco do combustivel escolhido
+# $f0 -> preco pago
+pagarCombustivel:
+	addi	$sp, $sp, -4
+	sw	$ra, 0($sp)
+	
+	IF_PAG:
+	bne	$a0, 1, ELSE_PAG
+	jal	getDoubleValue
+	mov.d	$f4, $f0
+	div.d	$f6, $f4, $f12
+	l.d	$f8, milD
+	mul.d	$f6, $f6, $f8
+	cvt.w.d	$f6, $f6
+	mfc1	$a0, $f6
+	jal	encher
+	mov.d	$f0, $f4
+	j	END_IF_PAG
+	
+	ELSE_PAG:
+	jal	getIntValue
+	move	$s0, $v0
+	mul	$t0, $s0, 1000
+	move	$a0, $t0
+	jal	encher
+	mtc1	$s0, $f4
+	cvt.d.w	$f4, $f4
+	mul.d	$f6, $f4, $f12
+	mov.d	$f0, $f6
+	
+	END_IF_PAG:
+	lw	$ra, 0($sp)
+	addi	$sp, $sp, 4
+	jr	$ra
+	
