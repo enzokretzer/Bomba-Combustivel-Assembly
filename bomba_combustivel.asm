@@ -20,6 +20,8 @@
 	getPagM1:	.asciiz "Pagar combustível por:\n"
 	getPagM2:	.asciiz "1 - Valor monetário \n"
 	getPagM3:	.asciiz "2 - Litro \n"
+	encherM:	.asciiz "Enchendo o tanque...\n"
+	enchidoM:	.asciiz "Tanque enchido!\n"
 .text
 
 main:
@@ -282,19 +284,27 @@ getIntValue:
 	jr	$ra
 	
 # $a0 -> Duração da espera em milissegundos
-sleep:
+encher:
 	move	$t0, $a0
+	
+	la	$a0, encherM
+	li	$v0, 4
+	syscall
 	
 	li	$v0, 30
 	syscall
 	
 	add	$t1, $t0, $a0
 	
-	sleep_loop:
+	encher_loop:
 		li	$v0, 30
 		syscall
 		
-		blt	$a0, $t1, sleep_loop
+		blt	$a0, $t1, encher_loop
+		
+	la	$a0, enchidoM
+	li	$v0, 4
+	syscall
 	
 	jr	$ra
 	
@@ -314,7 +324,7 @@ pagarCombustivel:
 	mul.d	$f6, $f6, $f8
 	cvt.w.d	$f6, $f6
 	mfc1	$a0, $f6
-	jal	sleep
+	jal	encher
 	mov.d	$f0, $f4
 	j	END_IF_PAG
 	
@@ -323,7 +333,7 @@ pagarCombustivel:
 	move	$s0, $v0
 	mul	$t0, $s0, 1000
 	move	$a0, $t0
-	jal	sleep
+	jal	encher
 	mtc1	$s0, $f4
 	cvt.d.w	$f4, $f4
 	mul.d	$f6, $f4, $f12
