@@ -9,10 +9,19 @@
 		.byte	0x12,0x22,0x42,0x82
 		.byte	0x14,0x24,0x44,0x84
 		.byte	0x18,0x28,0x48,0x88
+		
+	newline:	.asciiz "\n"
+	getCombM1:	.asciiz "Indique o Combustível desejado:\n"
+	getCombM2:	.asciiz "1 - Gasolina Comum R$"
+	getCombM3:	.asciiz "2 - Gasolina Aditivada R$"
+	getCombM4:	.asciiz "3 - Álcool R$"
+	getPagM1:	.asciiz "Pagar combustível por:\n"
+	getPagM2:	.asciiz "1 - Valor monetário \n"
+	getPagM3:	.asciiz "2 - Litro \n"
 .text
 
 main:
-	jal	getHexKeyboardInput
+	jal	getFormaPagamento
 	move	$a0, $v0
 	li	$v0, 1
 	syscall
@@ -84,3 +93,86 @@ getHexKeyboardInput:
 		bnez	$t5, waitRelease	# repeat while not zero (key pressed)
 
 		jr	$ra
+		
+# $v0 -> Combustível selecionado
+getCombustivel:
+	addi	$sp, $sp -4
+	sw	$ra, 0($sp)
+	# jal	updatePrecoCombustivel
+	la	$a0, getCombM1
+	li	$v0, 4
+	syscall
+	
+	la	$a0, getCombM2
+	syscall
+	
+	l.d	$f12, precoComum
+	li	$v0, 3
+	syscall
+	
+	la	$a0, newline
+	li	$v0, 4
+	syscall
+	
+	la	$a0, getCombM3
+	syscall
+	
+	l.d	$f12, precoAditivada
+	li	$v0, 3
+	syscall
+	
+	la	$a0, newline
+	li	$v0, 4
+	syscall
+	
+	la	$a0, getCombM4
+	syscall
+	
+	l.d	$f12, precoAlcool
+	li	$v0, 3
+	syscall
+	
+	la	$a0, newline
+	li	$v0, 4
+	syscall
+	validCombustivelLoop:
+		jal	getHexKeyboardInput
+		move	$t0, $v0
+		seq	$t1, $t0, 0
+		sgt	$t2, $t0, 3
+		or	$t1, $t1, $t2
+		bnez	$t1, validCombustivelLoop
+	
+	move	$v0, $t0
+	
+	lw	$ra, 0($sp)
+	addi	$sp, $sp, 4
+	jr	$ra
+	
+# $v0 -> Forma de pagamento selecionada
+getFormaPagamento:
+	addi	$sp, $sp -4
+	sw	$ra, 0($sp)
+	
+	la	$a0, getPagM1
+	li	$v0, 4
+	syscall
+	
+	la	$a0, getPagM2
+	syscall
+	
+	la	$a0, getPagM3
+	syscall
+	validPagamentoLoop:
+		jal	getHexKeyboardInput
+		move	$t0, $v0
+		seq	$t1, $t0, 0
+		sgt	$t2, $t0, 2
+		or	$t1, $t1, $t2
+		bnez	$t1, validPagamentoLoop
+	
+	move	$v0, $t0
+	
+	lw	$ra, 0($sp)
+	addi	$sp, $sp, 4
+	jr	$ra
