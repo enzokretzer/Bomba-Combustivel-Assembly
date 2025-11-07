@@ -17,19 +17,26 @@
 	getCombM2:	.asciiz "1 - Gasolina Comum R$"
 	getCombM3:	.asciiz "2 - Gasolina Aditivada R$"
 	getCombM4:	.asciiz "3 - Álcool R$"
+	ChangeCombM1:	.asciiz "Deseja modificar o preço dos combustíveis?\n"
+	ChangeCombM2:	.asciiz "Modificando preço dos combustíveis...\n\n"
+	ChangeCombM3:	.asciiz "Insira o novo valor para Gasolina Comum: "
+	ChangeCombM4:	.asciiz "Insira o novo valor para Gasolina Aditivada: "
+	ChangeCombM5:	.asciiz "Insira o novo valor para Álcool: "
+	ChangeCombM6:	.asciiz "Valores alterados!\n\n"
 	getPagM1:	.asciiz "Pagar combustível por:\n"
 	getPagM2:	.asciiz "1 - Valor monetário \n"
 	getPagM3:	.asciiz "2 - Litro \n"
 	encherM:	.asciiz "Enchendo o tanque...\n"
 	enchidoM:	.asciiz "Tanque enchido!\n"
+	finalizaM:	.asciiz "Finalizar sistema?\n"
+	simOptM:	.asciiz "1 - Sim\n"
+	naoOptM:	.asciiz "2 - Não\n"
 .text
 
 main:
-	li	$a0, 2
-	l.d	$f12, precoComum
-	jal	pagarCombustivel
-	mov.d	$f12, $f0
-	li	$v0, 3
+	jal	getContinuaSist
+	move	$a0, $v0
+	li	$v0, 1
 	syscall
 
 	li	$v0, 10
@@ -104,7 +111,7 @@ getHexKeyboardInput:
 getCombustivel:
 	addi	$sp, $sp -4
 	sw	$ra, 0($sp)
-	# jal	updatePrecoCombustivel
+	jal	updatePrecoCombustivel
 	la	$a0, getCombM1
 	li	$v0, 4
 	syscall
@@ -151,6 +158,92 @@ getCombustivel:
 	
 	move	$v0, $t0
 	
+	lw	$ra, 0($sp)
+	addi	$sp, $sp, 4
+	jr	$ra
+
+# Não retorna nada	
+updatePrecoCombustivel:
+	addi	$sp, $sp, -4
+	sw	$ra, 0($sp)
+	
+	la	$a0, ChangeCombM1
+	li	$v0, 4
+	syscall
+	
+	la	$a0, simOptM
+	li	$v0, 4
+	syscall
+	
+	la	$a0, naoOptM
+	li	$v0, 4
+	syscall
+	
+	validPrecoCombustivelOpt:
+		jal	getHexKeyboardInput
+		move	$t0, $v0
+		seq	$t1, $t0, 0
+		sgt	$t2, $t0, 2
+		or	$t1, $t1, $t2
+		bnez	$t1, validPrecoCombustivelOpt
+	
+	beq	$t0, 2, END_IF_CHANGE
+	
+	la	$a0, ChangeCombM2
+	li	$v0, 4
+	syscall
+	
+	la	$a0, ChangeCombM3
+	li	$v0, 4
+	syscall
+	
+	jal	getDoubleValue
+	s.d	$f0, precoComum
+	
+	mov.d	$f12, $f0
+	li	$v0, 3
+	syscall
+	
+	la	$a0, newline
+	li	$v0, 4
+	syscall
+	
+	la	$a0, ChangeCombM4
+	li	$v0, 4
+	syscall
+	
+	jal	getDoubleValue
+	s.d	$f0, precoAditivada
+	
+	mov.d	$f12, $f0
+	li	$v0, 3
+	syscall
+	
+	la	$a0, newline
+	li	$v0, 4
+	syscall
+	
+	la	$a0, ChangeCombM5
+	li	$v0, 4
+	syscall
+	
+	jal	getDoubleValue
+	s.d	$f0, precoAlcool
+	
+	mov.d	$f12, $f0
+	li	$v0, 3
+	syscall
+	
+	la	$a0, newline
+	li	$v0, 4
+	syscall
+	
+	la	$a0, ChangeCombM6
+	li	$v0, 4
+	syscall
+	
+	END_IF_CHANGE:
+
 	lw	$ra, 0($sp)
 	addi	$sp, $sp, 4
 	jr	$ra
@@ -217,6 +310,7 @@ getDoubleValue:
 		bnez	$t5, getDoubleValueLoop
 		move	$t1, $zero	#iterador
 		li	$t2, 1		# multiplicador
+		move	$t4, $zero
 	translateDoubleValue:
 		lw	$t3, 0($sp)
 		mul	$t3, $t3, $t2
@@ -269,6 +363,7 @@ getIntValue:
 		beqz	$s0, getIntValueLoop
 		move	$t1, $zero	#iterador
 		li	$t2, 1		# multiplicador
+		move	$t4, $zero
 	translateIntValue:
 		lw	$t3, 0($sp)
 		mul	$t3, $t3, $t2
@@ -343,4 +438,32 @@ pagarCombustivel:
 	lw	$ra, 0($sp)
 	addi	$sp, $sp, 4
 	jr	$ra
+
+# $v0 -> retorna 1 / 2 (Sim/Não)	
+getContinuaSist:
+	addi	$sp, $sp, -4
+	sw	$ra, 0($sp)
 	
+	la	$a0, finalizaM
+	li	$v0, 4
+	syscall
+	
+	la	$a0, simOptM
+	li	$v0, 4
+	syscall
+	
+	la	$a0, naoOptM
+	li	$v0, 4
+	syscall
+	validFinalizaOpt:
+		jal	getHexKeyboardInput
+		move	$t0, $v0
+		seq	$t1, $t0, 0
+		sgt	$t2, $t0, 2
+		or	$t1, $t1, $t2
+		bnez	$t1, validFinalizaOpt
+	move	$v0, $t0
+	
+	lw	$ra, 0($sp)
+	addi	$sp, $sp, 4
+	jr	$ra
