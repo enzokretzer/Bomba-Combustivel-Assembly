@@ -30,6 +30,7 @@
 	getPagM3:	.asciiz "2 - Litro\n\n"
 	monetarioM:	.asciiz "Digite o valor pago (Duas casas após vírgula)\n"
 	litrosM:	.asciiz "Digite quantos litros deseja encher\n"
+	valorM:		.asciiz "Valor escolhido: "
 	encherM:	.asciiz "Enchendo o tanque...\n"
 	enchidoM:	.asciiz "Tanque enchido!\n\n"
 	finalizaM:	.asciiz "Continuar rodando sistema?\n"
@@ -57,16 +58,16 @@ main:
 	syscall
 
 	li	$s0, 1	# Iteração
-	li	$s1, 1	# Sinal de continua
+	li	$s1, 1	# Sinal de continua programa (1 = continua)
 	main_while:
-		bne	$s1, 1, main_while_end
+		bne	$s1, 1, main_while_end	# while (continua)
 		
 		addi	$sp, $sp, -8
 		sw	$s1, 4($sp)
 		sw	$s0, 0($sp)
 		
 		jal	getCombustivel
-		move	$s2, $v0	# Combustivel solicitado
+		move	$s2, $v0	# $s2 recebe -> Combustivel solicitado
 		
 		lw	$s0, 0($sp)
 		lw	$s1, 4($sp)
@@ -78,7 +79,7 @@ main:
 		sw	$s0, 0($sp)
 		
 		jal	getFormaPagamento
-		move	$s3, $v0	# Forma de pagamento
+		move	$s3, $v0	# $s3 recebe -> Forma de pagamento
 		
 		lw	$s0, 0($sp)
 		lw	$s1, 4($sp)
@@ -93,7 +94,7 @@ main:
 		
 		move	$a0, $s2
 		jal	getPrecoLitro
-		mov.d	$f20, $f0	# Preco do litro
+		mov.d	$f20, $f0	# $f20 recebe -> Preco do litro
 		
 		lw	$s0, 0($sp)
 		lw	$s1, 4($sp)
@@ -110,7 +111,7 @@ main:
 		move	$a0, $s3
 		mov.d	$f12, $f20
 		jal	pagarCombustivel
-		mov.d	$f22, $f0
+		mov.d	$f22, $f0	# $f22 recebe -> Total pago
 		
 		lw	$s0, 0($sp)
 		lw	$s1, 4($sp)
@@ -139,31 +140,36 @@ main:
 		sw	$s0, 0($sp)
 		
 		jal	getContinuaSist
-		move	$s1, $v0
+		move	$s1, $v0	# $s1 recebe -> continuar (1) / não continuar (2)
 		
 		lw	$s0, 0($sp)
 		addi	$sp, $sp, 4
 		
 		addi	$s0, $s0, 1
-		j	main_while
+		j	main_while	# Retorna ao início do laço
 	main_while_end:
 	
 	li	$v0, 4
 	la	$a0, finalizando
-	syscall
+	syscall				# Mensagem de finalização
 		
 	li	$v0, 10
 	syscall
 	
+
+# getPrecoLitro recebe como argumento o combustivel solicitado pelo usuário
+# e retorna o preço desse combustível
+#
 # $a0 -> Combustível solicitado
 # $f0 -> Preço do combustível solicitado em double
 getPrecoLitro:
 	beq	$a0, 1, case_comum
 	beq	$a0, 2, case_aditivada
 	beq	$a0, 3, case_alcool
-	l.d	$f0, zeroD
+	l.d	$f0, zeroD		# Case Default - Retorna 0
 	jr	$ra
 	
+	# Switch case comum
 	case_comum:
 		l.d	$f0, precoComum
 		jr 	$ra
@@ -173,61 +179,75 @@ getPrecoLitro:
 	case_alcool:
 		l.d	$f0, precoAlcool
 		jr 	$ra
+	
 		
+# getHexKeyboardInput faz a leitura do teclado hexadecimal do Digital Lab Sim
+# e retorna o input inserido pelo usuário.
+#
 # $v0 -> Valor recebido
 getHexKeyboardInput:
-	li	$s0, 0xFFFF0012		# line enable address
-	li	$s1, 0xFFFF0014		# key pressed data address
+	li	$s0, 0xFFFF0012		# Endereço de habilitação da linha
+	li	$s1, 0xFFFF0014		# Endereço dos dados da tecla pressionada
 	readLoopReset:
-		li	$t0, 1			# key row selector
-		li	$t1, 0			# row counter
+		li	$t0, 1			# Seletor da linha da tecla
+		li	$t1, 0			# Contador de linha
 		la	$s3, keyTable
 
 	readLoop:
-		beq	$t1, 4, readLoopReset	# if 4 rows are read, reset
+		beq	$t1, 4, readLoopReset	# Reinicia se já passou por todas as linhas
 
-		sb	$t0, 0($s0)		# enabling line
+		sb	$t0, 0($s0)
 
-		lb	$t3, 0($s1)		# loading data in register
-		bnez	$t3, rowIncrement	# if not zero, key read
+		lb	$t3, 0($s1)
+		bnez	$t3, rowIncrement	# Se dado em $t3 não for 0, linha da tecla pressionada encontrada
 	
-		addi	$t1, $t1, 1		# incrementing counter
-		sll	$t0, $t0, 1		# going to next row
+		addi	$t1, $t1, 1		# Incrementa o contador de linha
+		sll	$t0, $t0, 1		# Vai para a próxima linha
 		j	readLoop
 
 	rowIncrement:
-		mul	$t2, $t1, 4             # offset = row * 4
-		add	$s3, $s3, $t2
+		mul	$t2, $t1, 4             # Offset = row * 4
+		add	$s3, $s3, $t2		# $s3 aponta para o inicío da linha com tecla pressionada
 		move	$t6, $zero
 		j	findKey
 	
 	findKey:
-		lb	$t5, 0($s3)		# loading keyTable first value
-		beq	$t3, $t5, getValue 	# checking if equal
-		addi	$t6, $t6, 1		# incrementing if not equal
-		addi	$s3, $s3, 1
+		lb	$t5, 0($s3)
+		beq	$t3, $t5, getValue	# Verifica em qual coluna está o valor pressionado
+		addi	$t6, $t6, 1		# $s6 armazena a coluna atual (no fim, a da tecla pressionada)
+		addi	$s3, $s3, 1		# Aponta para o próximo endereço da linha (próxima coluna)
 		j	findKey
 
 	getValue:
 		mul	$t7, $t1, 4
-		add	$v0, $t7, $t6
+		add	$v0, $t7, $t6		# $v0 armazena o valor escolhido (inteiro)
 	
 		j	waitRelease
 
+	# Espera soltar o botão do teclado
 	waitRelease:
-		lb	$t5, 0($s1)		# read key output
-		bnez	$t5, waitRelease	# repeat while not zero (key pressed)
+		lb	$t5, 0($s1)
+		bnez	$t5, waitRelease
 
 		jr	$ra
-		
+
+# getCombustivel pede para o usuário inserir o combustível desejado
+# para encher o tanque. Outro procedimento é chamado no processo, caso
+# o frentista deseje alterar o preço dos combustíveis. Ao fim do procedimento
+# o combustível selecionado pelo usuário é retornado.
+#
 # $v0 -> Combustível selecionado
 getCombustivel:
 	addi	$sp, $sp -4
 	sw	$ra, 0($sp)
-	jal	updatePrecoCombustivel
+	jal	updatePrecoCombustivel	# Procedimento para atualização de preços
+	
+	# === Mensagens no console ===
+	
 	la	$a0, getCombM1
 	li	$v0, 4
 	syscall
+	
 	
 	la	$a0, getCombM2
 	syscall
@@ -265,6 +285,10 @@ getCombustivel:
 	la	$a0, newline
 	li	$v0, 4
 	syscall
+	
+	# ============================
+	
+	# Verifica se o input escolhido é válido [1,3]
 	validCombustivelLoop:
 		jal	getHexKeyboardInput
 		move	$t0, $v0
@@ -279,10 +303,15 @@ getCombustivel:
 	addi	$sp, $sp, 4
 	jr	$ra
 
-# Não retorna nada	
+# updatePrecoCombustivel pede que o usuário (frentista) escolha os novos
+# preços para os três combustíveis disponíveis.
+#
+# $v0 -> void	
 updatePrecoCombustivel:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)
+	
+	# === Mensagens no console ===
 	
 	la	$a0, ChangeCombM1
 	li	$v0, 4
@@ -299,15 +328,19 @@ updatePrecoCombustivel:
 	la	$a0, newline
 	li	$v0, 4
 	syscall
+	
+	# Verifica se o input escolhido é válido [1,2]
 	validPrecoCombustivelOpt:
-		jal	getHexKeyboardInput
+		jal	getHexKeyboardInput	# Solicita input do teclado
 		move	$t0, $v0
 		seq	$t1, $t0, 0
 		sgt	$t2, $t0, 2
 		or	$t1, $t1, $t2
 		bnez	$t1, validPrecoCombustivelOpt
 	
-	beq	$t0, 2, END_IF_CHANGE
+	beq	$t0, 2, END_IF_CHANGE	# Vai para o fim do procedimento caso não deseje modificações (2)
+	
+	# === Mensagens no console ===
 	
 	la	$a0, ChangeCombM2
 	li	$v0, 4
@@ -317,8 +350,8 @@ updatePrecoCombustivel:
 	li	$v0, 4
 	syscall
 	
-	jal	getDoubleValue
-	s.d	$f0, precoComum
+	jal	getDoubleValue		# Solicita double para novo valor do combustível
+	s.d	$f0, precoComum		# Modifica preço da gasolina comum
 	
 	mov.d	$f12, $f0
 	li	$v0, 3
@@ -332,8 +365,8 @@ updatePrecoCombustivel:
 	li	$v0, 4
 	syscall
 	
-	jal	getDoubleValue
-	s.d	$f0, precoAditivada
+	jal	getDoubleValue		# Solicita double para novo valor do combustível
+	s.d	$f0, precoAditivada	# Modifica preço da gasolina aditivada
 	
 	mov.d	$f12, $f0
 	li	$v0, 3
@@ -347,8 +380,8 @@ updatePrecoCombustivel:
 	li	$v0, 4
 	syscall
 	
-	jal	getDoubleValue
-	s.d	$f0, precoAlcool
+	jal	getDoubleValue		# Solicita double para novo valor do combustível
+	s.d	$f0, precoAlcool	# Modifica preço do álcool
 	
 	mov.d	$f12, $f0
 	li	$v0, 3
@@ -362,16 +395,24 @@ updatePrecoCombustivel:
 	li	$v0, 4
 	syscall
 	
+	# ============================
+	
 	END_IF_CHANGE:
 
 	lw	$ra, 0($sp)
 	addi	$sp, $sp, 4
 	jr	$ra
 	
+# getFormaPagamento pede ao usuário a forma de pagamento desejada.
+# O pagamento pode ser por valor monetário (1) ou por litros (2).
+# Essa escolha é o retorno do procedimento.	
+#
 # $v0 -> Forma de pagamento selecionada
 getFormaPagamento:
 	addi	$sp, $sp -4
 	sw	$ra, 0($sp)
+	
+	# === Mensagens no console ===
 	
 	la	$a0, getPagM1
 	li	$v0, 4
@@ -382,8 +423,12 @@ getFormaPagamento:
 	
 	la	$a0, getPagM3
 	syscall
+	
+	# ============================
+	
+	# Verifica valores válidos de input [1,2]
 	validPagamentoLoop:
-		jal	getHexKeyboardInput
+		jal	getHexKeyboardInput	# Solicita input do teclado
 		move	$t0, $v0
 		seq	$t1, $t0, 0
 		sgt	$t2, $t0, 2
@@ -395,14 +440,21 @@ getFormaPagamento:
 	lw	$ra, 0($sp)
 	addi	$sp, $sp, 4
 	jr	$ra
-	
-# $f0 -> retorna um valor 
+
+# getDoubleValue solicita diversos inputs ao teclado. Retorna um valor Double com
+# duas casas decimais. O input inserido pelo usuário deve sempre ser um valor com duas casas decimais.
+# Não é possível inserir menos de dois números. Exemplo de valor válido 12340 -> (123,40).
+#	
+# $f0 -> retorna o double inserido pelo usuário
 getDoubleValue:
 	addi	$sp, $sp -4
 	sw	$ra, 0($sp)
 	
 	move	$s0, $zero
 	getDoubleValueLoop:
+		# Verifica se o input está no intervalo [0,10]
+		# Não permite que o primeiro valor seja zero (zero à esquerda)
+		# Valor 10 (botão A) serve para terminar a inserção de números
 		validDoubleValueLoop:
 			addi	$sp, $sp -4
 			sw	$s0, 0($sp)
@@ -413,7 +465,7 @@ getDoubleValue:
 			lw	$s0, 0($sp)
 			addi	$sp, $sp, 4
 			
-			bnez	$s0, contDouble		# Apenas na primeira iteração
+			bnez	$s0, contDouble			# Apenas na primeira iteração
 			beqz	$t1, validDoubleValueLoop	# Não adiciona zeros à esquerda
 			contDouble:
 			sgt	$t2, $t1, 10
@@ -421,35 +473,40 @@ getDoubleValue:
 			
 		beq	$t1, 10, endDoubleValueLoop
 		addi	$sp, $sp, -4
-		sw	$t1, 0($sp)
-		addi	$s0, $s0, 1
+		sw	$t1, 0($sp)				# Adiciona valores escolhidos na pilha
+		addi	$s0, $s0, 1				# Contador de numeros escolhidos
 		j	getDoubleValueLoop
 		
 	endDoubleValueLoop:
 		slti	$t5, $s0, 2
-		bnez	$t5, getDoubleValueLoop
-		move	$t1, $zero	#iterador
-		li	$t2, 1		# multiplicador
+		bnez	$t5, getDoubleValueLoop		# Input inválido (menos que 2 números selecionados)
+		move	$t1, $zero			# Iterador (verificação de números retirados da pilha)
+		li	$t2, 1				# Multiplicador
 		move	$t4, $zero
 	translateDoubleValue:
-		lw	$t3, 0($sp)
-		mul	$t3, $t3, $t2
+		lw	$t3, 0($sp)			# Retira valor da pilha
+		mul	$t3, $t3, $t2			# Pega seu valor de acordo com sua posição (unidade, dezena, centena...)
 		add	$t4, $t4, $t3
 		addi	$t1, $t1, 1
 		addi	$sp, $sp, 4
-		mul	$t2, $t2, 10
-		bne	$t1, $s0, translateDoubleValue
+		mul	$t2, $t2, 10			# Aumenta a posição (multiplica por 10)
+		bne	$t1, $s0, translateDoubleValue	# Verifica se todos os números foram retirados da pilha
 		
+	# Transforma o número em double
 	mtc1	$t4, $f4
 	cvt.d.w	$f4, $f4
 	l.d	$f6, cemD
-	div.d	$f4, $f4, $f6
+	div.d	$f4, $f4, $f6	# Divide por 100 (dois últimos números representam as casas decimais)
 	mov.d	$f0, $f4
 	
 	lw	$ra, 0($sp)
 	addi	$sp, $sp, 4
 	jr	$ra
 
+# getIntValue solicita vários inputs do teclado decimal para retornar um
+# número inteiro com mais de apenas um algarismo. Não que o primeiro número seja zero
+# (zero à esquerda).
+#
 # $v0 -> Valor inteiro obtido	
 getIntValue:
 	addi	$sp, $sp -4
@@ -457,6 +514,9 @@ getIntValue:
 	
 	move	$s0, $zero
 	getIntValueLoop:
+		# Verifica se o input está no intervalo [0,10]
+		# Não permite que o primeiro valor seja zero (zero à esquerda)
+		# Valor 10 (botão A) serve para terminar a inserção de números
 		validIntValueLoop:
 			addi	$sp, $sp -4
 			sw	$s0, 0($sp)
@@ -480,25 +540,29 @@ getIntValue:
 		j	getIntValueLoop
 		
 	endIntValueLoop:
-		beqz	$s0, getIntValueLoop
-		move	$t1, $zero	#iterador
-		li	$t2, 1		# multiplicador
+		beqz	$s0, getIntValueLoop		# Se nenhum valor foi inserido, volta pra inserção
+		move	$t1, $zero			# Iterador (verificação de números retirados da pilha)
+		li	$t2, 1				# Multiplicador
 		move	$t4, $zero
 	translateIntValue:
-		lw	$t3, 0($sp)
-		mul	$t3, $t3, $t2
+		lw	$t3, 0($sp)			# Retira valor da pilha
+		mul	$t3, $t3, $t2			# Pega seu valor de acordo com sua posição (unidade, dezena, centena...)
 		add	$t4, $t4, $t3
 		addi	$t1, $t1, 1
 		addi	$sp, $sp, 4
-		mul	$t2, $t2, 10
-		bne	$t1, $s0, translateIntValue
+		mul	$t2, $t2, 10			# Aumenta a posição (multiplica por 10)
+		bne	$t1, $s0, translateIntValue	# Verifica se todos os números foram retirados da pilha
 		
 	move	$v0, $t4
 	lw	$ra, 0($sp)
 	addi	$sp, $sp, 4
 	jr	$ra
 	
+# encher recebe como argumento a quantidade de milissegundos que a bomba ficará
+# enchendo o tanque do carro. Semelhante à uma função sleep em C.
+#
 # $a0 -> Duração da espera em milissegundos
+# $v0 -> void
 encher:
 	move	$t0, $a0
 	
@@ -522,7 +586,14 @@ encher:
 	syscall
 	
 	jr	$ra
-	
+
+# pagarCombustivel recebe a forma de pagamento e o preço do combustível selecionado. A
+# partir disso é calculado e retornado o valor total a ser pago. Além disso, também é calculado
+# o tempo que a bomba ficara enchendo o tanque. Se a forma de pagamento for valor monetário, o
+# total a ser pago já está pronto e o tempo de enchimento é (valor / preco_litro). Se a forma de
+# pagamento for por litro, o tempo de enchimento já está pronto e o valor a ser pago é
+# (litro * preco_litro).
+#
 # $a0 -> forma de pagamento
 # $f12 -> preco do combustivel escolhido
 # $f0 -> preco pago
@@ -530,46 +601,88 @@ pagarCombustivel:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)
 	
-	IF_PAG:
+	IF_PAG:		# Se pagamento é por valor monetário
 	bne	$a0, 1, ELSE_PAG
 	
 	la	$a0, monetarioM
 	li	$v0, 4
 	syscall
 	
-	jal	getDoubleValue
+	jal	getDoubleValue	# Solicita quantia que será paga
 	mov.d	$f4, $f0
-	div.d	$f6, $f4, $f12
-	l.d	$f8, milD
+	
+	mov.d	$f6, $f12	# Salva valor de $f12 (será sujado)
+	
+	# ==== Mensagens no console ===
+	
+	li	$v0, 4
+	la	$a0, valorM
+	syscall
+	
+	li	$v0, 3
+	mov.d	$f12, $f4	# Suja $f12
+	syscall
+	
+	li	$v0, 4
+	la	$a0, newline
+	syscall
+	
+	# ============================
+	
+	div.d	$f6, $f4, $f6	# (valor / preco_litro)
+	l.d	$f8, milD	# Multiplica por mil (tempo em milissegundos)
 	mul.d	$f6, $f6, $f8
-	cvt.w.d	$f6, $f6
-	mfc1	$a0, $f6
-	jal	encher
+	cvt.w.d	$f6, $f6	# Converte para inteiro (tipo correto para 'encher')
+	mfc1	$t1, $f6	# Armazena em $t1 o tempo de enchimento
 	mov.d	$f0, $f4
 	j	END_IF_PAG
 	
-	ELSE_PAG:
+	ELSE_PAG:	# Se pagamento é por litro
 	
 	la	$a0, litrosM
 	li	$v0, 4
 	syscall
 	
-	jal	getIntValue
+	jal	getIntValue	# Solicita quantidade de litros a serem enchidos
 	move	$s0, $v0
+	
+	# ==== Mensagens no console ===
+	
+	li	$v0, 4
+	la	$a0, valorM
+	syscall
+	
+	li	$v0, 1
+	move	$a0, $s0
+	syscall
+	
+	li	$v0, 4
+	la	$a0, newline
+	syscall
+	
+	# ============================
+	
 	mul	$t0, $s0, 1000
-	move	$a0, $t0
-	jal	encher
+	move	$t1, $t0	# Armazena em $t1 o tempo de enchimento
+	
 	mtc1	$s0, $f4
-	cvt.d.w	$f4, $f4
-	mul.d	$f6, $f4, $f12
+	cvt.d.w	$f4, $f4	# Converte a quantidade de litros em Double
+	mul.d	$f6, $f4, $f12	# (litro * preco_litro)
 	mov.d	$f0, $f6
 	
 	END_IF_PAG:
+	
+	move	$a0, $t1
+	jal	encher		# Enche o tanque
+	
 	lw	$ra, 0($sp)
 	addi	$sp, $sp, 4
 	jr	$ra
 
-# $v0 -> retorna 1 / 2 (Sim/Não)	
+# getContinuaSist pergunta ao usuário se deseja continuar o sistema (abastacer mais um carro).
+# retorna sim ou não (1 ou 2).
+#
+# $v0 -> retorna 1 / 2	
 getContinuaSist:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)
@@ -602,10 +715,17 @@ getContinuaSist:
 	addi	$sp, $sp, 4
 	jr	$ra
 
-# $a0  -> Iteração do loop principal (número do carro)
+# emitirNotaFiscal escreve os dados do abastecimento em um arquivo .txt. Recebe como
+# argumento o número do carro (iterações do sistema) o tipo de combustível escolhido
+# e o preço que foi pago.
+#
+# $a0  -> Número do carro
 # $a1  -> Tipo de combustível
 # $f12 -> Preço pago
+# $v0  -> void
 emitirNotaFiscal:
+	# === Escreve num buffer o número do carro ===
+	
 	la	$s0, notaNumBuffer
 	move	$t0, $a0
 	li	$t1, 10
@@ -635,6 +755,10 @@ emitirNotaFiscal:
 		j	itoa_pop
 	itoa_end:
 	
+	# === Escreve num buffer o nome do arquivo ===
+	# Estrutura do nome: NotaFiscal-XX.txt
+	
+	# Copia para o buffer o prefixo 'NotaFiscal-'
 	la	$s0, notaBuffer
 	la	$t0, notaPrefix
 	prefixLoop:
@@ -646,6 +770,7 @@ emitirNotaFiscal:
 		j	prefixLoop
 	prefixLoopEnd:
 	
+	# Copia para o buffer o número do carro 'XX'
 	la	$t0, notaNumBuffer
 	itLoop:
 		lb	$t1, 0($t0)
@@ -656,6 +781,7 @@ emitirNotaFiscal:
 		j	itLoop
 	itLoopEnd:
 	
+	# Copia para o buffer o sufixo (formato do arquivo) '.txt'
 	la	$t0, notaSufix
 	sufixLoop:
 		lb	$t1, 0($t0)
@@ -671,9 +797,13 @@ emitirNotaFiscal:
 	la	$a0, notaBuffer
 	li	$a1, 1
 	li	$a2, 0
-	syscall
+	syscall			# Faz a abertura do arquivo com o nome escrito no buffer anterior
 	move	$s1, $v0
 	
+	# === Escreve num buffer o título (primeira linha do arquivo) ===
+	# Estrutura: CARRO X
+	
+	# Copia para o buffer o início do título 'CARRO '
 	la	$s0, notaTitleBuffer
 	la	$t0, notaCarro
 	move	$t3, $zero
@@ -687,6 +817,7 @@ emitirNotaFiscal:
 		j	titleStartLoop
 	titleStartLoopEnd:
 	
+	# Copia para o buffer o número do carro 'X'
 	la	$t0, notaNumBuffer
 	titleMiddleLoop:
 		lb	$t1, 0($t0)
@@ -698,6 +829,7 @@ emitirNotaFiscal:
 		j	titleMiddleLoop
 	titleMiddleLoopEnd:
 	
+	# Adiciona ao fim do buffer um caractere de nova linha
 	la	$t0, newline
 	lb	$t1, 0($t0)
 	sb	$t1, 0($s0)
@@ -709,15 +841,19 @@ emitirNotaFiscal:
 	move	$a0, $s1
 	la	$a1, notaTitleBuffer
 	move	$a2, $t3
-	syscall
+	syscall			# Escreve o título no arquivo
 	
 	lw	$a2, 0($sp)
 	addi	$sp, $sp, 4
 	
+	# === Escreve no arquivo o combustível escolhido ===
+	
+	# Switch case para ver qual combustível foi escolhido
 	beq	$a2, 1, IF_COMB_COMUM
 	beq	$a2, 2, IF_COMB_COMUM
 	beq	$a2, 3, IF_COMB_ALCOOL
 	
+	# Pega o texto de acordo com o combustível
 	IF_COMB_COMUM:
 		la	$a1, comb1
 		li	$a2, 28
@@ -731,11 +867,17 @@ emitirNotaFiscal:
 	
 	li	$v0, 15
 	move	$a0, $s1
-	syscall
+	syscall			# Escreve o combustível escolhido no arquivo
+	
+	
+	# === Escreve num buffer o preco pago pelo abastecimento ===
+	# Estrutura: Total: (valor)
 	
 	la	$s0, notaPrecoBuffer
 	move	$t3, $zero
 	
+	
+	# Copia o início da linha para o buffer 'Total: '
 	la	$t0, notaPrecoStart
 	precoLoop:
 		lb	$t1, 0($t0)
@@ -747,17 +889,18 @@ emitirNotaFiscal:
 		j	precoLoop
 	precoLoopEnd:
 		
-
+	# Separa parte decimal e parte inteira do valor pago
 	trunc.w.d	$f4, $f12
-	mfc1		$t5, $f4
+	mfc1		$t5, $f4	# $t5 -> parte inteira
 		
 	cvt.d.w		$f4, $f4
 	sub.d		$f6, $f12, $f4
 	l.d		$f4, cemD
 	mul.d		$f6, $f6, $f4
 	round.w.d	$f4, $f6
-	mfc1		$t6, $f4	
+	mfc1		$t6, $f4	# $t6 -> parte decimal	
 	
+	# Escreve no buffer a parte inteira
 	move	$t0, $t5
 	li	$t1, 10
 	move	$t4, $zero
@@ -775,7 +918,7 @@ emitirNotaFiscal:
 	
 	rem	$t7, $t4, 3
 	bnez	$t7, ftoa_int_pop
-	li	$t7, 3
+	li	$t7, 3			# $t7 é um controlador para separação do número (XX.XXX)
 	ftoa_int_pop:
 		beqz	$t4, ftoa_int_end
 		
@@ -787,8 +930,9 @@ emitirNotaFiscal:
 		addi	$t4, $t4, -1
 		addi	$t3, $t3, 1
 		addi	$t7, $t7, -1
-		bnez	$t7, ftoa_int_pop
+		bnez	$t7, ftoa_int_pop	# Se $t7 chega a 0, precisa adicionar um '.'
 		beqz	$t4, ftoa_int_end
+		# Adição do '.' caso $t7 == 0 e ainda restem números para adicionar
 		la	$t7, dot
 		lb	$t2, 0($t7)
 		sb	$t2, 0($s0)
@@ -798,12 +942,14 @@ emitirNotaFiscal:
 		j	ftoa_int_pop
 	ftoa_int_end:
 	
+	# Adicionar uma vírgula
 	la	$t0, comma
 	lb	$t2, 0($t0)
 	sb	$t2, 0($s0)
 	addi	$s0, $s0, 1
 	addi	$t3, $t3, 1
 	
+	# Copia os dois dígitos para as casas decimais
 	move	$t0, $t6
 	li	$t1, 10
 	move	$t4, $zero
@@ -838,10 +984,10 @@ emitirNotaFiscal:
 	move	$a0, $s1
 	la	$a1, notaPrecoBuffer
 	move	$a2, $t3
-	syscall
+	syscall			# Escreve no arquivo o total pago
 	
 	li	$v0, 16
 	move	$a0, $s1
-	syscall
+	syscall			# Fecha o arquivo salvando as mudanças feitas
 		
 	jr	$ra
