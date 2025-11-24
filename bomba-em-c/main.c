@@ -21,34 +21,58 @@ double precoAlcool = 4.13;
 
 void alterarPrecoCombustivel()
 {
-    unsigned int opcao;
+    combustivel_t combustivel;
     int invalido;
-    do
+    int repetir;
+
+    do 
     {
-        invalido = 0;
-        printf("Deseja alterar o preço dos combustíveis? (frentista):\n");
+        repetir = 1;
+        invalido =  0;
+        printf("Deseja alterar o preço de algum dos combustíveis? (frentista):\n");
         printf("0 - Não\n");
-        printf("1 - Sim\n");
+        printf("1 - Gasolina Comum - Preço Atual R$%.2lf / Litro\n", precoComum);
+        printf("2 - Gasolina Aditivada - Preço Atual R$%.2lf / Litro\n", precoAditivada);
+        printf("3 - Álcool - Preço Atual R$%.2lf / Litro\n", precoAlcool);
         printf("Opção: ");
-        scanf("%u", &opcao);
-        if (opcao > 1)
+        scanf("%u", &combustivel);
+        printf("\n");
+        if (combustivel < 0 || combustivel > ALCOOL)
         {
-            printf("Opção inválida. Tente novamente...\n");
             invalido = 1;
         }
-    } while (invalido);
-    printf("\n");
-
-    if (opcao)
-    {
-        printf("Preço da gasolina comum: ");
-        scanf("%lf", &precoComum);
-        printf("Preço da gasolina aditivada: ");
-        scanf("%lf", &precoAditivada);
-        printf("Preço do álcool: ");
-        scanf("%lf", &precoAlcool);
-        printf("\n");
-    }
+        if (combustivel == 0)
+        {
+            repetir = 0;
+        }
+        
+        switch (combustivel)
+        {
+        case 0:
+            break;
+        case COMUM:
+            printf("Preço da gasolina comum: ");
+            scanf("%lf", &precoComum);
+            printf("\n");
+            printf("Preço da gasolina comum atualizado para R$%.2lf\n\n", precoComum);
+            break;
+        case ADITIVADA:
+            printf("Preço da gasolina aditivada: ");
+            scanf("%lf", &precoAditivada);
+            printf("\n");
+            printf("Preço da gasolina aditivada atualizado para R$%.2lf\n\n", precoAditivada);
+            break;
+        case ALCOOL:
+            printf("Preço do álcool: ");
+            scanf("%lf", &precoAlcool);
+            printf("\n");
+            printf("Preço do álcool atualizao para R$%.2lf\n\n", precoAlcool);
+            break;
+        default:
+            printf("Opção inválida. Tente novamente...\n\n");
+            break;
+        }
+    } while (invalido || repetir);
 }
 
 combustivel_t getCombustivel()

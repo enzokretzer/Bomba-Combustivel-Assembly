@@ -19,12 +19,14 @@
 	getCombM2:	.asciiz "1 - Gasolina Comum R$"
 	getCombM3:	.asciiz "2 - Gasolina Aditivada R$"
 	getCombM4:	.asciiz "3 - Álcool R$"
-	ChangeCombM1:	.asciiz "Deseja modificar o preço dos combustíveis?\n"
-	ChangeCombM2:	.asciiz "Modificando preço dos combustíveis...\n\n"
-	ChangeCombM3:	.asciiz "Insira o novo valor para Gasolina Comum: "
-	ChangeCombM4:	.asciiz "Insira o novo valor para Gasolina Aditivada: "
-	ChangeCombM5:	.asciiz "Insira o novo valor para Álcool: "
-	ChangeCombM6:	.asciiz "Valores alterados!\n\n"
+	ChangeCombM1:	.asciiz"Deseja alterar o preço de algum dos combustíveis?\n"
+	ChangeCombM2:	.asciiz"1 - Gasolina Comum - Preço Atual R$"
+	ChangeCombM3:	.asciiz"2 - Gasolina Aditivada - Preço Atual R$"
+	ChangeCombM4:	.asciiz"3 - Álcool - Preço Atual R$"
+	ChangeCombM5:	.asciiz "Insira o novo valor para Gasolina Comum: "
+	ChangeCombM6:	.asciiz "Insira o novo valor para Gasolina Aditivada: "
+	ChangeCombM7:	.asciiz "Insira o novo valor para Álcool: "
+	ChangeCombM8:	.asciiz "Valor alterado!\n\n"
 	getPagM1:	.asciiz "Pagar combustível por:\n"
 	getPagM2:	.asciiz "1 - Valor monetário\n"
 	getPagM3:	.asciiz "2 - Litro\n\n"
@@ -35,7 +37,7 @@
 	enchidoM:	.asciiz "Tanque enchido!\n\n"
 	finalizaM:	.asciiz "Continuar rodando sistema?\n"
 	simOptM:	.asciiz "1 - Sim\n"
-	naoOptM:	.asciiz "2 - Não\n"
+	naoOptM:	.asciiz "0 - Não\n"
 	
 	notaBuffer:	.space 32
 	notaNumBuffer:	.space 12
@@ -140,7 +142,7 @@ main:
 		sw	$s0, 0($sp)
 		
 		jal	getContinuaSist
-		move	$s1, $v0	# $s1 recebe -> continuar (1) / não continuar (2)
+		move	$s1, $v0	# $s1 recebe -> continuar (1) / não continuar (0)
 		
 		lw	$s0, 0($sp)
 		addi	$sp, $sp, 4
@@ -311,13 +313,10 @@ updatePrecoCombustivel:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)
 	
-	# === Mensagens no console ===
+	repeticao_update:
+	# === Mensagens no console === #
 	
 	la	$a0, ChangeCombM1
-	li	$v0, 4
-	syscall
-	
-	la	$a0, simOptM
 	li	$v0, 4
 	syscall
 	
@@ -325,24 +324,15 @@ updatePrecoCombustivel:
 	li	$v0, 4
 	syscall
 	
-	la	$a0, newline
+	la	$a0, ChangeCombM2
 	li	$v0, 4
 	syscall
 	
-	# Verifica se o input escolhido é válido [1,2]
-	validPrecoCombustivelOpt:
-		jal	getHexKeyboardInput	# Solicita input do teclado
-		move	$t0, $v0
-		seq	$t1, $t0, 0
-		sgt	$t2, $t0, 2
-		or	$t1, $t1, $t2
-		bnez	$t1, validPrecoCombustivelOpt
+	l.d	$f12, precoComum
+	li	$v0, 3
+	syscall
 	
-	beq	$t0, 2, END_IF_CHANGE	# Vai para o fim do procedimento caso não deseje modificações (2)
-	
-	# === Mensagens no console ===
-	
-	la	$a0, ChangeCombM2
+	la	$a0, newline
 	li	$v0, 4
 	syscall
 	
@@ -350,10 +340,7 @@ updatePrecoCombustivel:
 	li	$v0, 4
 	syscall
 	
-	jal	getDoubleValue		# Solicita double para novo valor do combustível
-	s.d	$f0, precoComum		# Modifica preço da gasolina comum
-	
-	mov.d	$f12, $f0
+	l.d	$f12, precoAditivada
 	li	$v0, 3
 	syscall
 	
@@ -365,10 +352,7 @@ updatePrecoCombustivel:
 	li	$v0, 4
 	syscall
 	
-	jal	getDoubleValue		# Solicita double para novo valor do combustível
-	s.d	$f0, precoAditivada	# Modifica preço da gasolina aditivada
-	
-	mov.d	$f12, $f0
+	l.d	$f12, precoAlcool
 	li	$v0, 3
 	syscall
 	
@@ -376,14 +360,30 @@ updatePrecoCombustivel:
 	li	$v0, 4
 	syscall
 	
+	la	$a0, newline
+	li	$v0, 4
+	syscall
+	# Verifica se o input escolhido é válido [0,1,2,3]
+	validPrecoCombustivelOpt:
+		jal	getHexKeyboardInput	# Solicita input do teclado
+		move	$t0, $v0
+		sgt	$t1, $t0, 3
+		bnez	$t1, validPrecoCombustivelOpt
+	
+	beq	$t0, 0, END_IF_CHANGE	# Vai para o fim do procedimento caso não deseje modificações (0)
+	beq	$t0, 1, update_preco_comum
+	beq	$t0, 2, update_preco_aditivada
+	beq	$t0, 3, update_preco_alcool
+	
+	update_preco_comum:
 	la	$a0, ChangeCombM5
 	li	$v0, 4
 	syscall
 	
-	jal	getDoubleValue		# Solicita double para novo valor do combustível
-	s.d	$f0, precoAlcool	# Modifica preço do álcool
+	jal	getDoubleValue
+	s.d	$f0, precoComum
 	
-	mov.d	$f12, $f0
+	l.d	$f12, precoComum
 	li	$v0, 3
 	syscall
 	
@@ -391,17 +391,61 @@ updatePrecoCombustivel:
 	li	$v0, 4
 	syscall
 	
+	la	$a0, ChangeCombM8
+	li	$v0, 4
+	syscall
+
+	j	repeticao_update
+	
+	update_preco_aditivada:
 	la	$a0, ChangeCombM6
 	li	$v0, 4
 	syscall
 	
-	# ============================
+	jal	getDoubleValue
+	s.d	$f0, precoAditivada
+	
+	l.d	$f12, precoAditivada
+	li	$v0, 3
+	syscall
+	
+	la	$a0, newline
+	li	$v0, 4
+	syscall
+	
+	la	$a0, ChangeCombM8
+	li	$v0, 4
+	syscall
+	
+	j	repeticao_update
+	
+	update_preco_alcool:
+	la	$a0, ChangeCombM7
+	li	$v0, 4
+	syscall
+	
+	jal	getDoubleValue
+	s.d	$f0, precoAlcool
+	
+	l.d	$f12, precoAlcool
+	li	$v0, 3
+	syscall
+	
+	la	$a0, newline
+	li	$v0, 4
+	syscall
+	
+	la	$a0, ChangeCombM8
+	li	$v0, 4
+	syscall
+	
+	j	repeticao_update
 	
 	END_IF_CHANGE:
-
 	lw	$ra, 0($sp)
 	addi	$sp, $sp, 4
 	jr	$ra
+	
 	
 # getFormaPagamento pede ao usuário a forma de pagamento desejada.
 # O pagamento pode ser por valor monetário (1) ou por litros (2).
@@ -572,14 +616,27 @@ encher:
 	
 	li	$v0, 30
 	syscall
+	move 	$t2, $a0
 	
-	add	$t1, $t0, $a0
+	add	$t1, $t0, $t2
 	
 	encher_loop:
 		li	$v0, 30
 		syscall
+		move	$t4, $a0
 		
-		blt	$a0, $t1, encher_loop
+		subu	$t3, $t4, $t2
+		blt	$t3, 1000, pula_animacao
+		
+		animacao:
+		la	$a0, dot
+		li	$v0, 4
+		syscall
+		
+		move	$t2, $t4
+		
+		pula_animacao:
+		blt	$t4, $t1, encher_loop
 		
 	la	$a0, enchidoM
 	li	$v0, 4
@@ -680,9 +737,9 @@ pagarCombustivel:
 	jr	$ra
 
 # getContinuaSist pergunta ao usuário se deseja continuar o sistema (abastacer mais um carro).
-# retorna sim ou não (1 ou 2).
+# retorna sim ou não (0 ou 1).
 #
-# $v0 -> retorna 1 / 2	
+# $v0 -> retorna 0 / 1
 getContinuaSist:
 	addi	$sp, $sp, -4
 	sw	$ra, 0($sp)
@@ -691,11 +748,11 @@ getContinuaSist:
 	li	$v0, 4
 	syscall
 	
-	la	$a0, simOptM
+	la	$a0, naoOptM
 	li	$v0, 4
 	syscall
 	
-	la	$a0, naoOptM
+	la	$a0, simOptM
 	li	$v0, 4
 	syscall
 	
@@ -705,9 +762,7 @@ getContinuaSist:
 	validFinalizaOpt:
 		jal	getHexKeyboardInput
 		move	$t0, $v0
-		seq	$t1, $t0, 0
-		sgt	$t2, $t0, 2
-		or	$t1, $t1, $t2
+		sgt	$t1, $t0, 1
 		bnez	$t1, validFinalizaOpt
 	move	$v0, $t0
 	
